@@ -1,5 +1,6 @@
 'use client'
 import React from "react";
+import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,17 +30,26 @@ export default function Home() {
 
   async function handleGenerateImage() {
     setIsGeneratingImage(true);
-    const response = await fetch("https://krishna-api-bd7ab3334389.herokuapp.com/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: process.env.NEXT_PUBLIC_IMAGE_TOKEN,
-        prompt: responseText,
-      }),
-    });
-    const data = await response.json();
-    console.log("Image generation response:", data);
-    setImageData(data.image);
+    try {
+      const response = await axios.post(
+        'https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev',
+        { inputs: responseText },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_IMAGE_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          responseType: 'arraybuffer',
+        }
+      );
+      // Convert the arraybuffer to a Base64 string
+      const base64 = btoa(
+        String.fromCharCode(...new Uint8Array(response.data))
+      );
+      setImageData(base64);
+    } catch (error) {
+      console.error("Error generating image:", error);
+    }
     setIsGeneratingImage(false);
   }
 
@@ -51,26 +61,28 @@ export default function Home() {
         onChange={(e) => setShortPrompt(e.target.value)}
       />
       <Button onClick={handleClick}>create prompt</Button>
-      {temp && <div>
-        <Textarea
-          value={responseText}
-          onChange={(e) => {
-            setResponseText(e.target.value);
-            console.log(responseText);
-          }}
-        />
-        <Button onClick={handleGenerateImage} disabled={isGeneratingImage}>
-          {isGeneratingImage ? "Generating..." : "generate image"}
-        </Button>
-        {imageData && (
-          <Image
-            src={`data:image/png;base64,${imageData}`}
-            alt="Generated image"
-            width={1024}
-            height={1024}
+      {temp && (
+        <div>
+          <Textarea
+            value={responseText}
+            onChange={(e) => {
+              setResponseText(e.target.value);
+              console.log(responseText);
+            }}
           />
-        )}
-      </div>}
+          <Button onClick={handleGenerateImage} disabled={isGeneratingImage}>
+            {isGeneratingImage ? "Generating..." : "generate image"}
+          </Button>
+          {imageData && (
+            <Image
+              src={`data:image/png;base64,${imageData}`}
+              alt="Generated image"
+              width={1024}
+              height={1024}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
